@@ -422,7 +422,8 @@ class ModelsCommand extends Command
                     if (!empty($name)) {
                         $reflection = new \ReflectionMethod($model, $method);
                         $type = $this->getReturnTypeFromDocBlock($reflection);
-                        $this->setProperty($name, $type, true, null);
+                        $comment = $this->getShortDescriptionFromDocBlock($reflection);
+                        $this->setProperty($name, $type, true, null, $comment);
                     }
                 } elseif (Str::startsWith($method, 'set') && Str::endsWith(
                     $method,
@@ -459,12 +460,13 @@ class ModelsCommand extends Command
                     if ($returnType = $reflection->getReturnType()) {
                         $type = $returnType instanceof \ReflectionNamedType
                             ? $returnType->getName()
-                            : (string)$returnType;
+                            : (string) $returnType;
                     } else {
                         // php 7.x type or fallback to docblock
-                        $type = (string)$this->getReturnTypeFromDocBlock($reflection);
+                        $type = (string) $this->getReturnTypeFromDocBlock($reflection);
                     }
-                    
+                    $comment = $this->getShortDescriptionFromDocBlock($reflection);
+
                     $file = new \SplFileObject($reflection->getFileName());
                     $file->seek($reflection->getStartLine() - 1);
 
@@ -517,7 +519,8 @@ class ModelsCommand extends Command
                                         $method,
                                         $this->getCollectionClass($relatedModel) . '|' . $relatedModel . '[]',
                                         true,
-                                        null
+                                        null,
+                                        $comment
                                     );
                                     $this->setProperty(
                                         Str::snake($method) . '_count',
@@ -531,7 +534,8 @@ class ModelsCommand extends Command
                                         $method,
                                         '\Illuminate\Database\Eloquent\Model|\Eloquent',
                                         true,
-                                        null
+                                        null,
+                                        $comment
                                     );
                                 } else {
                                     //Single model is returned
@@ -540,7 +544,7 @@ class ModelsCommand extends Command
                                         $relatedModel,
                                         true,
                                         null,
-                                        '',
+                                        $comment,
                                         $this->isRelationForeignKeyNullable($relationObj)
                                     );
                                 }
@@ -798,6 +802,20 @@ class ModelsCommand extends Command
         }
 
         return $type;
+    }
+
+    /**
+     * Get method short description based on it DocBlock comment
+     *
+     * @param \ReflectionMethod $reflection
+     *
+     * @return string
+     */
+    protected function getShortDescriptionFromDocBlock(\ReflectionMethod $reflection)
+    {
+        $phpdoc = new DocBlock($reflection);
+
+        return $phpdoc->getShortDescription();
     }
 
     /**
